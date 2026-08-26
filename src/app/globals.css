@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes pb-fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+button,[role="button"],input,select,article{transition:transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease,background-color .24s ease,border-color .24s ease,box-shadow .24s ease}
+button:hover,[role="button"]:hover{transform:translateY(-2px)}
+button:active,[role="button"]:active{transform:translateY(1px) scale(.96)}
+article{animation:pb-fade-up .45s cubic-bezier(.2,.8,.2,1) both}
+[role="dialog"],.fixed.inset-0{animation:pb-fade-up .28s ease both}
+input,select,textarea{background-color:#242424!important;color:#f7f7f7!important;border-color:rgba(255,255,255,.2)!important;color-scheme:dark}
+input::placeholder,textarea::placeholder{color:rgba(255,255,255,.58)!important;opacity:1}
+input:focus,select:focus,textarea:focus{border-color:#d13b2c!important;box-shadow:0 0 0 3px rgba(209,59,44,.2);outline:none}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 72% 51%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 72% 51%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 72% 51%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 72% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased selection:bg-primary/30;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+}
+
+.font-mono-technical {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
+}
+
+.brand-gradient {
+  background: radial-gradient(circle at top right, hsla(var(--primary), 0.15), transparent 40%),
+              radial-gradient(circle at bottom left, hsla(var(--primary), 0.05), transparent 40%);
+}
+
+.proboys-logo-text {
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.8;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-label {
+    display: none;
+    color: #000;
+    width: 58mm;
+    min-height: 30mm;
+    padding: 3mm;
+    page-break-after: always;
+    flex-direction: column;
+    align-items: center;
+    gap: 2mm;
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+  }
+  body:has(.print-receipt) .print-receipt,
+  body:has(.print-pc) .print-pc,
+  body:has(.print-label) .print-label {
+    display: flex;
+  }
+  .print-label img {
+    width: 28mm;
+    height: 28mm;
+  }
+  .print-brand {
+    font-weight: 800;
+    font-size: 11pt;
+    text-align: center;
+  }
+  .print-brand span {
+    display: block;
+    font-size: 6pt;
+    letter-spacing: .12em;
+  }
+  .print-device {
+    font-size: 6pt;
+  }
+}

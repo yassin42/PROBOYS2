@@ -1,0 +1,6 @@
+{
+  "name": "proboys",
+  "description": "Proboys application imported from GitHub repository yassin42/proboys",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "apple-logo",
+      "description": "Apple Logo",
+      "imageUrl": "https://picsum.photos/seed/apple/200/200",
+      "imageHint": "apple logo"
+    },
+    {
+      "id": "samsung-logo",
+      "description": "Samsung Logo",
+      "imageUrl": "https://picsum.photos/seed/samsung/200/200",
+      "imageHint": "samsung logo"
+    }
+  ]
+}
