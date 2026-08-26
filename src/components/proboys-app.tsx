@@ -32,7 +32,6 @@ import { BRANDS, INITIAL_GLOBAL_INVENTORY, MOCK_MODELS, PART_CATEGORIES, type In
 import { formatCurrency, translations, type Language } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import QRCode from "qrcode"
 
 const KEY = "proboys-inventory-v7"
 const REPAIR_KEY = "proboys-repairs-v2"
@@ -207,12 +206,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
   const [repairSearch, setRepairSearch] = useState("")
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
 
-  const [syncId, setSyncId] = useState<string>("PROBOYS-DEFAULT-DZ")
-  const [activeDevices, setActiveDevices] = useState<Array<{ deviceId: string; deviceName: string; syncId: string; role: string; lastSeen: number }>>([])
-  const [showLinkModal, setShowLinkModal] = useState(false)
-  const [copiedLink, setCopiedLink] = useState(false)
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState("")
-
   useEffect(() => {
     if (!toast) return
     const timer = setTimeout(() => setToast(null), 3500)
@@ -223,54 +216,12 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
   useEffect(() => {
     setBackdrop(Math.floor(Math.random() * 4))
-
-    const params = new URLSearchParams(window.location.search)
-    let currentSyncId = params.get("syncId")
-    if (currentSyncId) {
-      localStorage.setItem("proboys-store-sync-id", currentSyncId)
-    } else {
-      currentSyncId = localStorage.getItem("proboys-store-sync-id")
-      if (!currentSyncId) {
-        currentSyncId = "PROBOYS-" + Math.random().toString(36).substring(2, 6).toUpperCase() + "-DZ"
-        localStorage.setItem("proboys-store-sync-id", currentSyncId)
-      }
-    }
-    setSyncId(currentSyncId)
-
-    let deviceId = localStorage.getItem("proboys-device-id")
-    if (!deviceId) {
-      deviceId = "dev_" + Math.random().toString(36).substring(2, 9)
-      localStorage.setItem("proboys-device-id", deviceId)
-    }
-
-    const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
-    const deviceName = isMobile ? "Mobile Scanner" : "Main PC"
-    const role = isMobile ? "mobile" : "pc"
-
-    const registerHeartbeat = async (sId: string) => {
-      try {
-        const res = await fetch('/api/devices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId, deviceName, syncId: sId, role })
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.devices && Array.isArray(data.devices)) {
-            setActiveDevices(data.devices)
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
     
-    const loadData = async (sId: string) => {
+    const loadData = async () => {
       try {
-        const [invRes, repRes, devRes] = await Promise.all([
-          fetch(`/api/inventory?syncId=${sId}`),
-          fetch(`/api/repairs?syncId=${sId}`),
-          fetch(`/api/devices?syncId=${sId}`)
+        const [invRes, repRes] = await Promise.all([
+          fetch('/api/inventory'),
+          fetch('/api/repairs')
         ])
         if (invRes.ok) {
           const invData = await invRes.json()
@@ -279,10 +230,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
         if (repRes.ok) {
           const repData = await repRes.json()
           if (Array.isArray(repData)) setRepairs(repData)
-        }
-        if (devRes.ok) {
-          const devData = await devRes.json()
-          if (Array.isArray(devData)) setActiveDevices(devData)
         }
       } catch (err) {
         console.error('Failed to load from DB:', err)
@@ -293,15 +240,13 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       }
     }
 
-    loadData(currentSyncId)
-    registerHeartbeat(currentSyncId)
+    loadData()
 
     const pollInterval = setInterval(async () => {
       try {
-        const [invRes, repRes, devRes] = await Promise.all([
-          fetch(`/api/inventory?syncId=${currentSyncId}`),
-          fetch(`/api/repairs?syncId=${currentSyncId}`),
-          fetch(`/api/devices?syncId=${currentSyncId}`)
+        const [invRes, repRes] = await Promise.all([
+          fetch('/api/inventory'),
+          fetch('/api/repairs')
         ])
         if (invRes.ok) {
           const invData = await invRes.json()
@@ -311,11 +256,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
           const repData = await repRes.json()
           if (Array.isArray(repData)) setRepairs(repData)
         }
-        if (devRes.ok) {
-          const devData = await devRes.json()
-          if (Array.isArray(devData)) setActiveDevices(devData)
-        }
-        await registerHeartbeat(currentSyncId)
       } catch (e) {
         // ignore network hiccups during poll
       }
@@ -328,15 +268,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
     return () => clearInterval(pollInterval)
   }, [])
-
-  useEffect(() => {
-    if (showLinkModal && syncId) {
-      const linkUrl = `${window.location.origin}${window.location.pathname}?syncId=${syncId}`
-      QRCode.toDataURL(linkUrl, { width: 240, margin: 2, color: { dark: '#000000', light: '#ffffff' } })
-        .then(setQrCodeDataUrl)
-        .catch(console.error)
-    }
-  }, [showLinkModal, syncId])
 
   const toggleLanguage = () => {
     const nextLang: Language = lang === "ar" ? "en" : "ar"
@@ -367,7 +298,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       await fetch('/api/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item, syncId }),
+        body: JSON.stringify(item),
       })
     } catch (e) {
       console.error('Failed to save item to DB:', e)
@@ -376,7 +307,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
   const deleteItemApi = async (id: string) => {
     try {
-      await fetch(`/api/inventory?id=${id}&syncId=${syncId}`, {
+      await fetch(`/api/inventory?id=${id}`, {
         method: 'DELETE',
       })
     } catch (e) {
@@ -407,7 +338,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       await fetch('/api/repairs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repair, syncId }),
+        body: JSON.stringify(repair),
       })
     } catch (e) {
       console.error('Failed to save repair to DB:', e)
@@ -416,7 +347,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
   const deleteRepairApi = async (id: string) => {
     try {
-      await fetch(`/api/repairs?id=${id}&syncId=${syncId}`, {
+      await fetch(`/api/repairs?id=${id}`, {
         method: 'DELETE',
       })
     } catch (e) {
@@ -629,16 +560,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
               <b className="text-sm sm:text-base font-bold tracking-wide truncate block">{t.appName}</b>
               <p className="text-[9px] sm:text-[10px] uppercase tracking-[.18em] text-white/45 truncate">{t.tagline}</p>
             </div>
-
-            {/* Live Sync Badge in Header */}
-            <button
-              onClick={() => setShowLinkModal(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/25 transition ml-2"
-              title="Click to link mobile device & view active devices"
-            >
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>🟢 {t.syncConnected} ({activeDevices.length})</span>
-            </button>
           </div>
 
           {/* Desktop Navigation */}
@@ -668,6 +589,17 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
               <span>{t.newItem}</span>
             </Button>
 
+            {/* Link Mobile Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLinkModal(true)}
+              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5 font-semibold"
+            >
+              <QrCode className="size-4" />
+              <span>{t.linkMobile}</span>
+            </Button>
+
             {/* Language Switcher Toggle */}
             <Button
               variant="outline"
@@ -678,17 +610,6 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
             >
               <Globe className="size-4 text-red-400" />
               <span>{lang === "ar" ? "English (EN)" : "العربية (AR)"}</span>
-            </Button>
-
-            {/* Link Mobile Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLinkModal(true)}
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5 font-semibold"
-            >
-              <QrCode className="size-4" />
-              <span>{t.linkMobile}</span>
             </Button>
 
             {/* Sound Toggle */}
@@ -717,6 +638,16 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
             >
               <Plus className="size-4" />
               <span className="sr-only sm:not-sr-only">{t.newItem}</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowLinkModal(true)}
+              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 text-xs px-2.5 h-9 min-h-[36px] gap-1 font-semibold"
+            >
+              <QrCode className="size-3.5" />
+              <span>Link</span>
             </Button>
 
             <Button size="icon" variant="ghost" className="h-9 w-9" aria-label={t.toggleSound} onClick={() => setSound(!sound)}>
@@ -1648,87 +1579,6 @@ function RepairBoard({
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Link Mobile / QR Pairing Modal */}
-      {showLinkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/15 bg-[#12141c] p-6 text-white shadow-2xl">
-            <button
-              onClick={() => setShowLinkModal(false)}
-              className="absolute top-4 right-4 rounded-full p-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition"
-              aria-label={t.cancel}
-            >
-              <X className="size-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-2xl bg-emerald-500/10 p-3 border border-emerald-500/20 text-emerald-400">
-                <QrCode className="size-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">{t.linkMobile}</h3>
-                <p className="text-xs text-white/50">{t.storeSyncId}: <span className="font-mono text-emerald-400 font-bold">{syncId}</span></p>
-              </div>
-            </div>
-
-            <p className="text-xs text-white/70 mb-4">{t.scanToSync}</p>
-
-            {/* QR Code Container */}
-            <div className="bg-white p-4 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-              {qrCodeDataUrl ? (
-                <img src={qrCodeDataUrl} alt="Sync QR Code" className="size-48 object-contain rounded-lg" />
-              ) : (
-                <div className="size-48 flex items-center justify-center text-black/40 text-xs">Generating QR...</div>
-              )}
-            </div>
-
-            {/* Direct Link Copy */}
-            <div className="mb-5">
-              <label className="text-[11px] uppercase tracking-wider text-white/40 block mb-1">Direct Pairing URL</label>
-              <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl p-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={`${typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''}?syncId=${syncId}`}
-                  className="bg-transparent text-xs text-white/80 w-full outline-none font-mono truncate px-1"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    const link = `${window.location.origin}${window.location.pathname}?syncId=${syncId}`
-                    navigator.clipboard.writeText(link)
-                    setCopiedLink(true)
-                    setTimeout(() => setCopiedLink(false), 2000)
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs shrink-0 h-8 px-3"
-                >
-                  {copiedLink ? t.linkCopied : t.copyLink}
-                </Button>
-              </div>
-            </div>
-
-            {/* Active Connected Devices */}
-            <div className="border-t border-white/10 pt-4">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-2.5 flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{t.activeDevices} ({activeDevices.length})</span>
-              </h4>
-              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {activeDevices.map((d) => (
-                  <div key={d.deviceId} className="flex items-center justify-between text-xs bg-white/5 border border-white/5 p-2 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <div className={`size-2.5 rounded-full ${d.role === 'mobile' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                      <span className="font-medium text-white">{d.deviceName}</span>
-                      <span className="text-[10px] text-white/40 font-mono">({d.role.toUpperCase()})</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full">Live Synced</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
