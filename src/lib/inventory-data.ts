@@ -24,6 +24,7 @@ export type InventoryItem = {
   wholesaleCost: number;
   barcode?: string;
   compatibilityNote?: string;
+  compatibleModels?: string[];
 };
 
 export const BRANDS: Brand[] = [
@@ -284,7 +285,7 @@ export const INITIAL_GLOBAL_INVENTORY: InventoryItem[] = [
   { id: 'SAM-A14-4G-PS', modelId: 'sam-a14', category: 'SCREENS', name: 'LCD SAM A14 A145P 4G PS', stock: 0, retailPrice: 1850, wholesaleCost: 1480 },
   { id: 'SAM-A145P-WF-4G', modelId: 'sam-a14', category: 'SCREENS', name: 'LCD SAM A145P WF 4G PS', stock: 0, retailPrice: 2700, wholesaleCost: 2160 },
   { id: 'SAM-A146B-WF-5G', modelId: 'sam-a14', category: 'SCREENS', name: 'LCD SAM A146B / A145F WF 5G PS', stock: 0, retailPrice: 2700, wholesaleCost: 2160 },
-  { id: 'SAM-A15-5G-BLK-PS', modelId: 'sam-a15', category: 'SCREENS', name: 'LCD SAM A15 5G BLK PS', stock: 0, retailPrice: 9300, wholesaleCost: 7900, compatibilityNote: 'Pack Service Original' },
+  { id: 'SAM-A15-5G-BLK-PS', modelId: 'sam-a15', category: 'SCREENS', name: 'Samsung A15 Screen', stock: 0, retailPrice: 9300, wholesaleCost: 7900, compatibilityNote: 'Pack Service Original', compatibleModels: ['Galaxy A24', 'Galaxy A25'] },
   { id: 'SAM-A15-OLED-WF-IFIX', modelId: 'sam-a15', category: 'SCREENS', name: 'LCD SAM A15 OLED WF IFIX', stock: 0, retailPrice: 5800, wholesaleCost: 4930, compatibilityNote: 'OLED With Frame' },
   { id: 'SAM-A15-WF-ASSEMBLED', modelId: 'sam-a15', category: 'SCREENS', name: 'LCD SAM A15 WF ASSEMBLED', stock: 0, retailPrice: 8500, wholesaleCost: 7225 },
   { id: 'SAM-A16-M16-PS', modelId: 'sam-a16', category: 'SCREENS', name: 'LCD SAM A16 / M16 PS ONLY', stock: 0, retailPrice: 9300, wholesaleCost: 7900, compatibilityNote: 'Fits A16 and M16' },

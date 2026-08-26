@@ -73,6 +73,8 @@ export const translations = {
     buyCost: 'Buy cost',
     sellingPrice: 'Selling price',
     profitMargin: 'Margin',
+    compatibleModels: 'Compatible models',
+    compatibleModelsPlaceholder: 'e.g. Galaxy A24, Galaxy A25 (comma separated)',
     saveChanges: 'Save changes',
     addItemBtn: 'Add item',
 
@@ -187,6 +189,8 @@ export const translations = {
     buyCost: 'سعر الشراء',
     sellingPrice: 'سعر البيع',
     profitMargin: 'الهامش',
+    compatibleModels: 'الطرازات المتوافقة',
+    compatibleModelsPlaceholder: 'مثال: Galaxy A24, Galaxy A25 (مفصولة بفاصلة)',
     saveChanges: 'حفظ التغييرات',
     addItemBtn: 'إضافة القطعة',
 

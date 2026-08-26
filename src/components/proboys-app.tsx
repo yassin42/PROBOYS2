@@ -65,7 +65,15 @@ function searchTokens(value: string) {
 const normalizeSearch = (value: string) => searchTokens(value).join(" ")
 
 const hay = (item: InventoryItem) =>
-  [item.name, item.id, item.barcode, item.category, brandOf(item)?.name, MOCK_MODELS.find((m) => m.id === item.modelId)?.name]
+  [
+    item.name,
+    item.id,
+    item.barcode,
+    item.category,
+    brandOf(item)?.name,
+    MOCK_MODELS.find((m) => m.id === item.modelId)?.name,
+    ...(item.compatibleModels || []),
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
@@ -347,6 +355,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
     stock: "",
     retailPrice: "",
     wholesaleCost: "",
+    compatibleModelsText: "",
   }
 
   const [draft, setDraft] = useState<Record<string, any>>(empty)
@@ -360,6 +369,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       stock: "",
       retailPrice: "",
       wholesaleCost: "",
+      compatibleModelsText: "",
     })
     setShowNew(true)
   }
@@ -370,6 +380,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       stock: i.stock === 0 ? "0" : i.stock,
       retailPrice: i.retailPrice === 0 ? "" : i.retailPrice,
       wholesaleCost: i.wholesaleCost === 0 ? "" : i.wholesaleCost,
+      compatibleModelsText: i.compatibleModels ? i.compatibleModels.join(", ") : "",
     })
     setEditing(i)
   }
@@ -390,6 +401,13 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       return isNaN(parsed) ? 0 : Math.max(0, parsed)
     }
 
+    const compatibleModels = draft.compatibleModelsText
+      ? String(draft.compatibleModelsText)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []
+
     const id = draft.id || `PB-${Date.now()}`
     const next: InventoryItem = {
       id,
@@ -401,6 +419,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       stock: parseNum(draft.stock),
       retailPrice: parseNum(draft.retailPrice),
       wholesaleCost: parseNum(draft.wholesaleCost),
+      compatibleModels,
     }
 
     const updated = editing
@@ -602,6 +621,7 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
             setRepairTab={setRepairTab}
             repairSearch={repairSearch}
             setRepairSearch={setRepairSearch}
+            items={items}
           />
         ) : tab === "stats" ? (
           <Stats items={items} repairs={repairs} lang={lang} />
@@ -738,6 +758,15 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
                         <p className="mt-2 font-bold text-emerald-400 text-sm sm:text-base">
                           {formatCurrency(i.retailPrice, lang)}
                         </p>
+                        {i.compatibleModels && i.compatibleModels.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {i.compatibleModels.map((cm, idx) => (
+                              <span key={idx} className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] text-white/80 font-medium">
+                                {cm}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -973,6 +1002,17 @@ function Editor({
             </select>
           </label>
 
+          <label className="grid gap-1.5 text-xs font-semibold text-white/75 sm:col-span-2">
+            {t.compatibleModels}
+            <Input
+              aria-label={t.compatibleModels}
+              placeholder={t.compatibleModelsPlaceholder}
+              value={draft.compatibleModelsText || ""}
+              onChange={(e) => setDraft({ ...draft, compatibleModelsText: e.target.value })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
+            />
+          </label>
+
           {/* Number inputs - Initial '0' prevented with empty string defaults & auto-select onFocus */}
           <label className="grid gap-1.5 text-xs font-semibold text-white/75">
             {t.stockQty}
@@ -1112,6 +1152,7 @@ function RepairBoard({
   setRepairTab,
   repairSearch,
   setRepairSearch,
+  items,
 }: {
   repairs: Repair[]
   repair: Partial<Repair>
@@ -1122,6 +1163,7 @@ function RepairBoard({
   setRepairTab: (v: "active" | "history") => void
   repairSearch: string
   setRepairSearch: (s: string) => void
+  items: InventoryItem[]
 }) {
   const t = translations[lang]
 
@@ -1333,7 +1375,42 @@ function RepairBoard({
                       <p><span className="text-white/40">{t.expectedPrice}:</span> <strong className="text-emerald-400">{formatCurrency(r.price, lang)}</strong></p>
                     </div>
 
-                    <p className="font-mono text-[11px] text-white/40">ID: {r.id}</p>
+                    {/* Matching inventory parts for this device model */}
+                    {(() => {
+                      const dev = r.device.toLowerCase();
+                      const matching = items.filter(i => {
+                        const modelName = MOCK_MODELS.find(m => m.id === i.modelId)?.name.toLowerCase() || "";
+                        const matchesModel = dev.includes(modelName) || modelName.includes(dev);
+                        const matchesComp = (i.compatibleModels || []).some(cm => dev.includes(cm.toLowerCase()) || cm.toLowerCase().includes(dev));
+                        return matchesModel || matchesComp;
+                      });
+
+                      if (matching.length === 0) return null;
+
+                      return (
+                        <div className="mt-3 rounded-xl bg-white/5 p-2.5 border border-white/5">
+                          <p className="text-[11px] font-semibold text-red-400 mb-1.5 flex items-center gap-1">
+                            <Box className="size-3" />
+                            <span>{lang === "ar" ? "القطع المتوافقة بالمخزون:" : "Matching Inventory Parts:"}</span>
+                          </p>
+                          <div className="space-y-1.5">
+                            {matching.map(part => (
+                              <div key={part.id} className="flex items-center justify-between text-xs bg-black/30 p-1.5 rounded-lg">
+                                <span className="font-medium text-white truncate pr-2">{part.name}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`text-[10px] font-semibold ${part.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                    {part.stock > 0 ? `${part.stock} ${t.inStock}` : t.outOfStock}
+                                  </span>
+                                  <span className="font-bold text-emerald-300">{formatCurrency(part.retailPrice, lang)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <p className="mt-3 font-mono text-[11px] text-white/40">ID: {r.id}</p>
                   </div>
 
                   <div className="mt-4 flex flex-col sm:flex-row gap-2 pt-2">
