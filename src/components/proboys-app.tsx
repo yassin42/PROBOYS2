@@ -216,35 +216,57 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
   useEffect(() => {
     setBackdrop(Math.floor(Math.random() * 4))
-    const saved = localStorage.getItem(KEY)
-    if (saved) {
+    
+    const loadData = async () => {
       try {
-        const parsed: InventoryItem[] = JSON.parse(saved)
-        const resetDone = localStorage.getItem("proboys-stock-zero-reset-v1")
-        if (!resetDone) {
-          const updated = parsed.map((item) => ({ ...item, stock: 0 }))
-          setItems(updated)
-          localStorage.setItem(KEY, JSON.stringify(updated))
-          localStorage.setItem("proboys-stock-zero-reset-v1", "true")
-        } else {
-          setItems(parsed)
+        const [invRes, repRes] = await Promise.all([
+          fetch('/api/inventory'),
+          fetch('/api/repairs')
+        ])
+        if (invRes.ok) {
+          const invData = await invRes.json()
+          if (Array.isArray(invData)) setItems(invData)
         }
-      } catch {
-        setItems(INITIAL_GLOBAL_INVENTORY)
-        localStorage.setItem(KEY, JSON.stringify(INITIAL_GLOBAL_INVENTORY))
-        localStorage.setItem("proboys-stock-zero-reset-v1", "true")
+        if (repRes.ok) {
+          const repData = await repRes.json()
+          if (Array.isArray(repData)) setRepairs(repData)
+        }
+      } catch (err) {
+        console.error('Failed to load from DB:', err)
+        const saved = localStorage.getItem(KEY)
+        if (saved) setItems(JSON.parse(saved))
+        const r = localStorage.getItem(REPAIR_KEY)
+        if (r) setRepairs(JSON.parse(r))
       }
-    } else {
-      setItems(INITIAL_GLOBAL_INVENTORY)
-      localStorage.setItem(KEY, JSON.stringify(INITIAL_GLOBAL_INVENTORY))
-      localStorage.setItem("proboys-stock-zero-reset-v1", "true")
     }
-    const r = localStorage.getItem(REPAIR_KEY)
-    if (r) setRepairs(JSON.parse(r))
+
+    loadData()
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const [invRes, repRes] = await Promise.all([
+          fetch('/api/inventory'),
+          fetch('/api/repairs')
+        ])
+        if (invRes.ok) {
+          const invData = await invRes.json()
+          if (Array.isArray(invData)) setItems(invData)
+        }
+        if (repRes.ok) {
+          const repData = await repRes.json()
+          if (Array.isArray(repData)) setRepairs(repData)
+        }
+      } catch (e) {
+        // ignore network hiccups during poll
+      }
+    }, 4000)
+
     const names = localStorage.getItem("proboys-brand-names")
     if (names) setBrandNames(JSON.parse(names))
     const l = localStorage.getItem(LANG_KEY) as Language
     if (l === "en" || l === "ar") setLang(l)
+
+    return () => clearInterval(pollInterval)
   }, [])
 
   const toggleLanguage = () => {
@@ -271,10 +293,35 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
     void ctx.resume()
   }
 
-  const save = (next: InventoryItem[]) => {
+  const saveItemApi = async (item: InventoryItem) => {
+    try {
+      await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      })
+    } catch (e) {
+      console.error('Failed to save item to DB:', e)
+    }
+  }
+
+  const deleteItemApi = async (id: string) => {
+    try {
+      await fetch(`/api/inventory?id=${id}`, {
+        method: 'DELETE',
+      })
+    } catch (e) {
+      console.error('Failed to delete item from DB:', e)
+    }
+  }
+
+  const save = async (next: InventoryItem[], modifiedItem?: InventoryItem) => {
     setItems(next)
     clickSound()
     localStorage.setItem(KEY, JSON.stringify(next))
+    if (modifiedItem) {
+      await saveItemApi(modifiedItem)
+    }
   }
 
   const renameBrand = (id: string) => {
@@ -286,15 +333,44 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
     }
   }
 
-  const saveRepairs = (next: Repair[]) => {
-    setRepairs(next)
-    localStorage.setItem(REPAIR_KEY, JSON.stringify(next))
+  const saveRepairApi = async (repair: Repair) => {
+    try {
+      await fetch('/api/repairs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(repair),
+      })
+    } catch (e) {
+      console.error('Failed to save repair to DB:', e)
+    }
   }
 
-  const confirmDeleteItem = () => {
+  const deleteRepairApi = async (id: string) => {
+    try {
+      await fetch(`/api/repairs?id=${id}`, {
+        method: 'DELETE',
+      })
+    } catch (e) {
+      console.error('Failed to delete repair from DB:', e)
+    }
+  }
+
+  const saveRepairs = async (next: Repair[], modifiedRepair?: Repair) => {
+    setRepairs(next)
+    localStorage.setItem(REPAIR_KEY, JSON.stringify(next))
+    if (modifiedRepair) {
+      await saveRepairApi(modifiedRepair)
+    }
+  }
+
+  const confirmDeleteItem = async () => {
     if (!deletingItem) return
-    const next = items.filter((i) => i.id !== deletingItem.id)
-    save(next)
+    const idToDelete = deletingItem.id
+    const next = items.filter((i) => i.id !== idToDelete)
+    setItems(next)
+    clickSound()
+    localStorage.setItem(KEY, JSON.stringify(next))
+    await deleteItemApi(idToDelete)
     setDeletingItem(null)
   }
 
@@ -426,8 +502,8 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
       ? items.map((i) => (i.id === editing.id ? next : i))
       : [next, ...items]
 
-    // Persist immediately to state & localStorage
-    save(updated)
+    // Persist immediately to state, localStorage & PostgreSQL API
+    save(updated, next)
 
     // Trigger toast notification
     const msg = editing
@@ -1157,7 +1233,7 @@ function RepairBoard({
   repairs: Repair[]
   repair: Partial<Repair>
   setRepair: (r: Partial<Repair>) => void
-  save: (r: Repair[]) => void
+  save: (r: Repair[], modifiedRepair?: Repair) => void
   lang: Language
   repairTab: "active" | "history"
   setRepairTab: (v: "active" | "history") => void
@@ -1167,7 +1243,7 @@ function RepairBoard({
 }) {
   const t = translations[lang]
 
-  const addRepair = () => {
+  const addRepair = async () => {
     if (!repair.customer?.trim() || !repair.device?.trim() || !repair.issue?.trim()) return
     const newId = `R-${Date.now().toString().slice(-6)}`
     const newJob: Repair = {
@@ -1188,14 +1264,14 @@ function RepairBoard({
     }
 
     const updated = [newJob, ...repairs]
-    save(updated)
+    await save(updated, newJob)
     setRepair({ status: "Received" })
 
     // Auto prompt/print intake sticker upon registration
     printRepairIntakeSticker(newJob, lang)
   }
 
-  const markAsRepaired = (job: Repair) => {
+  const markAsRepaired = async (job: Repair) => {
     const updatedJob: Repair = {
       ...job,
       status: "Repaired",
@@ -1207,7 +1283,7 @@ function RepairBoard({
     }
 
     const next = repairs.map((r) => (r.id === job.id ? updatedJob : r))
-    save(next)
+    await save(next, updatedJob)
 
     // Print final receipt automatically upon marking as repaired
     printRepairFinalReceipt(updatedJob, lang)
