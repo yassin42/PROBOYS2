@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { INITIAL_GLOBAL_INVENTORY, type InventoryItem } from '@/lib/inventory-data';
 
+function hasPostgres() {
+  return !!process.env.POSTGRES_URL || !!process.env.POSTGRES_PRISMA_URL || !!process.env.POSTGRES_URL_NON_POOLING;
+}
+
 async function ensureTable() {
+  if (!hasPostgres()) return;
   await sql`
     CREATE TABLE IF NOT EXISTS inventory_items (
       id VARCHAR(255) PRIMARY KEY,
@@ -22,6 +27,9 @@ async function ensureTable() {
 
 export async function GET() {
   try {
+    if (!hasPostgres()) {
+      return NextResponse.json(INITIAL_GLOBAL_INVENTORY);
+    }
     await ensureTable();
     const { rows } = await sql`SELECT * FROM inventory_items`;
     
@@ -47,8 +55,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    await ensureTable();
     const body: InventoryItem = await req.json();
+    if (!hasPostgres()) {
+      return NextResponse.json({ success: true, item: body });
+    }
+    await ensureTable();
     const compJson = JSON.stringify(body.compatibleModels || []);
 
     await sql`
@@ -76,13 +87,16 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    await ensureTable();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
+    if (!hasPostgres()) {
+      return NextResponse.json({ success: true });
+    }
 
+    await ensureTable();
     await sql`DELETE FROM inventory_items WHERE id = ${id}`;
     return NextResponse.json({ success: true });
   } catch (error: any) {

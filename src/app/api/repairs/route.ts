@@ -15,7 +15,12 @@ type Repair = {
   repairedAt?: string;
 };
 
+function hasPostgres() {
+  return !!process.env.POSTGRES_URL || !!process.env.POSTGRES_PRISMA_URL || !!process.env.POSTGRES_URL_NON_POOLING;
+}
+
 async function ensureTable() {
+  if (!hasPostgres()) return;
   await sql`
     CREATE TABLE IF NOT EXISTS repairs (
       id VARCHAR(255) PRIMARY KEY,
@@ -35,6 +40,9 @@ async function ensureTable() {
 
 export async function GET() {
   try {
+    if (!hasPostgres()) {
+      return NextResponse.json([]);
+    }
     await ensureTable();
     const { rows } = await sql`SELECT * FROM repairs ORDER BY created_at DESC`;
     return NextResponse.json(rows.map(mapDbToRepair));
@@ -46,8 +54,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    await ensureTable();
     const body: Repair = await req.json();
+    if (!hasPostgres()) {
+      return NextResponse.json({ success: true, repair: body });
+    }
+    await ensureTable();
 
     await sql`
       INSERT INTO repairs (id, customer, phone, device, issue, status, price, promised, notes, created_at, repaired_at)
@@ -74,13 +85,16 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    await ensureTable();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
+    if (!hasPostgres()) {
+      return NextResponse.json({ success: true });
+    }
 
+    await ensureTable();
     await sql`DELETE FROM repairs WHERE id = ${id}`;
     return NextResponse.json({ success: true });
   } catch (error: any) {
