@@ -26,6 +26,7 @@ import {
   X,
   AlertTriangle
 } from "lucide-react"
+import { motion, AnimatePresence } from "motion/react"
 import { CameraScanner } from "@/components/camera-scanner"
 import { BRANDS, INITIAL_GLOBAL_INVENTORY, MOCK_MODELS, PART_CATEGORIES, type InventoryItem } from "@/lib/inventory-data"
 import { formatCurrency, translations, type Language } from "@/lib/translations"
@@ -711,65 +712,83 @@ export function ProBoysApp({ scanMode = false }: { scanMode?: boolean }) {
 
             {/* Inventory Items Grid */}
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((i) => (
-                <article key={i.id} className="group relative rounded-2xl border border-white/10 bg-white/[.04] p-4 transition-all hover:border-white/20 flex flex-col justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-red-500/15 p-2.5 sm:p-3 text-red-400 shrink-0">
-                      <Camera className="size-5" />
-                    </div>
-                    
-                    <div className={`min-w-0 flex-1 ${lang === "ar" ? "ml-auto" : "mr-auto"}`}>
-                      {/* Note: Item Name and Brand Name are kept in English as requested */}
-                      <h2 className="font-bold text-white text-sm sm:text-base leading-snug break-words">{i.name}</h2>
-                      <p className="text-xs text-white/50 mt-0.5">
-                        {brandOf(i)?.name || "Brand"} · {i.category}
-                      </p>
-                      <p className="mt-1 font-mono text-[11px] sm:text-xs text-white/40 truncate">{i.barcode || i.id}</p>
-                      <p className="mt-2 font-bold text-emerald-400 text-sm sm:text-base">
-                        {formatCurrency(i.retailPrice, lang)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 min-h-[36px] min-w-[36px] text-white/60 hover:bg-white/10 hover:text-white"
-                        aria-label={`${t.edit} ${i.name}`}
-                        onClick={() => beginEdit(i)}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
+              <AnimatePresence>
+                {filtered.map((i, index) => (
+                  <motion.article
+                    key={i.id}
+                    layout
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.2, delay: index * 0.02 }}
+                    className="group relative rounded-2xl border border-white/10 bg-white/[.04] p-4 transition-all hover:border-white/20 flex flex-col justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-red-500/15 p-2.5 sm:p-3 text-red-400 shrink-0">
+                        <Camera className="size-5" />
+                      </div>
                       
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 min-h-[36px] min-w-[36px] text-red-400/70 hover:bg-red-500/20 hover:text-red-300"
-                        aria-label={`${t.delete} ${i.name}`}
-                        onClick={() => setDeletingItem(i)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
+                      <div className={`min-w-0 flex-1 ${lang === "ar" ? "ml-auto" : "mr-auto"}`}>
+                        {/* Note: Item Name and Brand Name are kept in English as requested */}
+                        <h2 className="font-bold text-white text-sm sm:text-base leading-snug break-words">{i.name}</h2>
+                        <p className="text-xs text-white/50 mt-0.5">
+                          {brandOf(i)?.name || "Brand"} · {i.category}
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] sm:text-xs text-white/40 truncate">{i.barcode || i.id}</p>
+                        <p className="mt-2 font-bold text-emerald-400 text-sm sm:text-base">
+                          {formatCurrency(i.retailPrice, lang)}
+                        </p>
+                      </div>
 
-                  <div className="mt-4 flex flex-wrap items-center justify-between border-t border-white/5 pt-3 gap-2">
-                    <span className={`text-xs font-semibold ${i.stock === 0 ? "text-red-400" : "text-emerald-300"}`}>
-                      {i.stock === 0 ? t.outOfStock : `${i.stock} ${t.inStock}`}
-                    </span>
-                    <div className="flex gap-1.5">
-                      <Button size="sm" variant="outline" className="border-white/10 bg-white/5 text-xs h-8 px-2.5" onClick={() => printInventoryItem(i, "sticker", lang)}>
-                        <Printer className="size-3" />
-                        <span>{t.sticker}</span>
-                      </Button>
-                      <Button size="sm" variant="outline" className="border-white/10 bg-white/5 text-xs h-8 px-2.5" onClick={() => printInventoryItem(i, "receipt", lang)}>
-                        <Printer className="size-3" />
-                        <span>{t.receipt}</span>
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 min-h-[36px] min-w-[36px] text-white/60 hover:bg-white/10 hover:text-white"
+                            aria-label={`${t.edit} ${i.name}`}
+                            onClick={() => beginEdit(i)}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                        </motion.div>
+                        
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 min-h-[36px] min-w-[36px] text-red-400/70 hover:bg-red-500/20 hover:text-red-300"
+                            aria-label={`${t.delete} ${i.name}`}
+                            onClick={() => setDeletingItem(i)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </motion.div>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between border-t border-white/5 pt-3 gap-2">
+                      <span className={`text-xs font-semibold ${i.stock === 0 ? "text-red-400" : "text-emerald-300"}`}>
+                        {i.stock === 0 ? t.outOfStock : `${i.stock} ${t.inStock}`}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                          <Button size="sm" variant="outline" className="border-white/10 bg-white/5 text-xs h-8 px-2.5" onClick={() => printInventoryItem(i, "sticker", lang)}>
+                            <Printer className="size-3" />
+                            <span>{t.sticker}</span>
+                          </Button>
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                          <Button size="sm" variant="outline" className="border-white/10 bg-white/5 text-xs h-8 px-2.5" onClick={() => printInventoryItem(i, "receipt", lang)}>
+                            <Printer className="size-3" />
+                            <span>{t.receipt}</span>
+                          </Button>
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.article>
+                ))}
+              </AnimatePresence>
             </div>
 
             {(query || scanMode || showInventory) && filtered.length === 0 && (
