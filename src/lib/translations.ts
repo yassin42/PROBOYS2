@@ -128,6 +128,17 @@ export const translations = {
     dateLabel: 'Date',
     thankYou: 'Thank you for choosing ProBoys!',
     warrantyNotice: '15-Day Repair Warranty included. Present ticket upon collection.',
+
+    // Mobile Sync
+    linkMobile: 'Link Mobile',
+    syncConnected: 'Connected & Live Synced',
+    storeSyncId: 'Store Sync ID',
+    scanToSync: 'Scan QR code with your mobile camera to instantly sync inventory and repairs.',
+    copyLink: 'Copy Link',
+    linkCopied: 'Link Copied!',
+    activeDevices: 'Active Connected Devices',
+    mainPc: 'Main PC',
+    mobileScanner: 'Mobile Scanner',
   },
   ar: {
     // Header & Nav
@@ -244,5 +255,16 @@ export const translations = {
     dateLabel: 'التاريخ',
     thankYou: 'شكراً لثقتكم في ProBoys!',
     warrantyNotice: 'ضمان الصيانة 15 يوماً. يرجى إحضار هذا الوصل عند استلام الجهاز.',
+
+    // Mobile Sync
+    linkMobile: 'ربط الهاتف',
+    syncConnected: 'متصل ومزامن مباشرة',
+    storeSyncId: 'معرف مزامنة المتجر',
+    scanToSync: 'امسح الرمز بكاميرا هاتفك المحمول لمزامنة المخزون والصيانة فوراً.',
+    copyLink: 'نسخ الرابط',
+    linkCopied: 'تم النسخ!',
+    activeDevices: 'الأجهزة المتصلة النشطة',
+    mainPc: 'الكمبيوتر الرئيسي',
+    mobileScanner: 'ماسح الجوال',
   },
 };

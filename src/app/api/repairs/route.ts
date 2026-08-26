@@ -24,6 +24,7 @@ async function ensureTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS repairs (
       id VARCHAR(255) PRIMARY KEY,
+      sync_id VARCHAR(255) DEFAULT 'default-store',
       customer TEXT NOT NULL,
       phone VARCHAR(100),
       device TEXT NOT NULL,
@@ -38,13 +39,16 @@ async function ensureTable() {
   `;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const syncId = searchParams.get('syncId') || 'default-store';
+
     if (!hasPostgres()) {
       return NextResponse.json([]);
     }
     await ensureTable();
-    const { rows } = await sql`SELECT * FROM repairs ORDER BY created_at DESC`;
+    const { rows } = await sql`SELECT * FROM repairs WHERE sync_id = ${syncId} ORDER BY created_at DESC`;
     return NextResponse.json(rows.map(mapDbToRepair));
   } catch (error: any) {
     console.error('Error fetching repairs:', error);
@@ -54,16 +58,20 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body: Repair = await req.json();
+    const body = await req.json();
+    const repair: Repair = body.repair || body;
+    const syncId = body.syncId || 'default-store';
+
     if (!hasPostgres()) {
-      return NextResponse.json({ success: true, repair: body });
+      return NextResponse.json({ success: true, repair });
     }
     await ensureTable();
 
     await sql`
-      INSERT INTO repairs (id, customer, phone, device, issue, status, price, promised, notes, created_at, repaired_at)
-      VALUES (${body.id}, ${body.customer}, ${body.phone || ''}, ${body.device}, ${body.issue}, ${body.status}, ${body.price}, ${body.promised || ''}, ${body.notes || ''}, ${body.createdAt || new Date().toISOString()}, ${body.repairedAt || null})
+      INSERT INTO repairs (id, sync_id, customer, phone, device, issue, status, price, promised, notes, created_at, repaired_at)
+      VALUES (${repair.id}, ${syncId}, ${repair.customer}, ${repair.phone || ''}, ${repair.device}, ${repair.issue}, ${repair.status}, ${repair.price}, ${repair.promised || ''}, ${repair.notes || ''}, ${repair.createdAt || new Date().toISOString()}, ${repair.repairedAt || null})
       ON CONFLICT (id) DO UPDATE SET
+        sync_id = EXCLUDED.sync_id,
         customer = EXCLUDED.customer,
         phone = EXCLUDED.phone,
         device = EXCLUDED.device,
@@ -76,7 +84,7 @@ export async function POST(req: Request) {
         repaired_at = EXCLUDED.repaired_at;
     `;
 
-    return NextResponse.json({ success: true, repair: body });
+    return NextResponse.json({ success: true, repair });
   } catch (error: any) {
     console.error('Error saving repair:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -87,6 +95,7 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const syncId = searchParams.get('syncId') || 'default-store';
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
@@ -95,7 +104,7 @@ export async function DELETE(req: Request) {
     }
 
     await ensureTable();
-    await sql`DELETE FROM repairs WHERE id = ${id}`;
+    await sql`DELETE FROM repairs WHERE id = ${id} AND sync_id = ${syncId}`;
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting repair:', error);
@@ -115,6 +124,6 @@ function mapDbToRepair(row: any): Repair {
     promised: row.promised || '',
     notes: row.notes || '',
     createdAt: row.created_at || '',
-    repairedAt: row.repaired_at || undefined,
+    repaired_at: row.repaired_at || undefined,
   };
 }

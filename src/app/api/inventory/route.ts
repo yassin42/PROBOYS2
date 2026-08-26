@@ -11,6 +11,7 @@ async function ensureTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS inventory_items (
       id VARCHAR(255) PRIMARY KEY,
+      sync_id VARCHAR(255) DEFAULT 'default-store',
       model_id VARCHAR(255),
       brand_id VARCHAR(255),
       category VARCHAR(255),
@@ -25,24 +26,27 @@ async function ensureTable() {
   `;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const syncId = searchParams.get('syncId') || 'default-store';
+
     if (!hasPostgres()) {
       return NextResponse.json(INITIAL_GLOBAL_INVENTORY);
     }
     await ensureTable();
-    const { rows } = await sql`SELECT * FROM inventory_items`;
+    const { rows } = await sql`SELECT * FROM inventory_items WHERE sync_id = ${syncId}`;
     
     if (rows.length === 0) {
       for (const item of INITIAL_GLOBAL_INVENTORY) {
         const compJson = JSON.stringify(item.compatibleModels || []);
         await sql`
-          INSERT INTO inventory_items (id, model_id, brand_id, category, name, stock, retail_price, wholesale_cost, barcode, compatibility_note, compatible_models)
-          VALUES (${item.id}, ${item.modelId || null}, ${item.brandId || null}, ${item.category}, ${item.name}, ${item.stock}, ${item.retailPrice}, ${item.wholesaleCost}, ${item.barcode || null}, ${item.compatibilityNote || null}, ${compJson}::jsonb)
+          INSERT INTO inventory_items (id, sync_id, model_id, brand_id, category, name, stock, retail_price, wholesale_cost, barcode, compatibility_note, compatible_models)
+          VALUES (${item.id}, ${syncId}, ${item.modelId || null}, ${item.brandId || null}, ${item.category}, ${item.name}, ${item.stock}, ${item.retailPrice}, ${item.wholesaleCost}, ${item.barcode || null}, ${item.compatibilityNote || null}, ${compJson}::jsonb)
           ON CONFLICT (id) DO NOTHING;
         `;
       }
-      const { rows: seededRows } = await sql`SELECT * FROM inventory_items`;
+      const { rows: seededRows } = await sql`SELECT * FROM inventory_items WHERE sync_id = ${syncId}`;
       return NextResponse.json(seededRows.map(mapDbToItem));
     }
 
@@ -55,17 +59,21 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body: InventoryItem = await req.json();
+    const body = await req.json();
+    const item: InventoryItem = body.item || body;
+    const syncId = body.syncId || 'default-store';
+
     if (!hasPostgres()) {
-      return NextResponse.json({ success: true, item: body });
+      return NextResponse.json({ success: true, item });
     }
     await ensureTable();
-    const compJson = JSON.stringify(body.compatibleModels || []);
+    const compJson = JSON.stringify(item.compatibleModels || []);
 
     await sql`
-      INSERT INTO inventory_items (id, model_id, brand_id, category, name, stock, retail_price, wholesale_cost, barcode, compatibility_note, compatible_models)
-      VALUES (${body.id}, ${body.modelId || null}, ${body.brandId || null}, ${body.category}, ${body.name}, ${body.stock}, ${body.retailPrice}, ${body.wholesaleCost}, ${body.barcode || null}, ${body.compatibilityNote || null}, ${compJson}::jsonb)
+      INSERT INTO inventory_items (id, sync_id, model_id, brand_id, category, name, stock, retail_price, wholesale_cost, barcode, compatibility_note, compatible_models)
+      VALUES (${item.id}, ${syncId}, ${item.modelId || null}, ${item.brandId || null}, ${item.category}, ${item.name}, ${item.stock}, ${item.retailPrice}, ${item.wholesaleCost}, ${item.barcode || null}, ${item.compatibilityNote || null}, ${compJson}::jsonb)
       ON CONFLICT (id) DO UPDATE SET
+        sync_id = EXCLUDED.sync_id,
         model_id = EXCLUDED.model_id,
         brand_id = EXCLUDED.brand_id,
         category = EXCLUDED.category,
@@ -78,7 +86,7 @@ export async function POST(req: Request) {
         compatible_models = EXCLUDED.compatible_models;
     `;
 
-    return NextResponse.json({ success: true, item: body });
+    return NextResponse.json({ success: true, item });
   } catch (error: any) {
     console.error('Error saving inventory item:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -89,6 +97,7 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const syncId = searchParams.get('syncId') || 'default-store';
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
@@ -97,7 +106,7 @@ export async function DELETE(req: Request) {
     }
 
     await ensureTable();
-    await sql`DELETE FROM inventory_items WHERE id = ${id}`;
+    await sql`DELETE FROM inventory_items WHERE id = ${id} AND sync_id = ${syncId}`;
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting inventory item:', error);
